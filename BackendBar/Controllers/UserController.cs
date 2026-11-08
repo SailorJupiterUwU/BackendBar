@@ -1,74 +1,71 @@
-﻿using BackendBar.Models;
-using BackendBar.Repositories;
+﻿using BackendBar.Interfaces;
+using BackendBar.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BackendBar.Controllers
 {
-    namespace Ejercicio1.Controllers
+    [Authorize]
+    [Route("api/[controller]")]
+    [ApiController]
+    public class UserController : ControllerBase
     {
-        [Authorize]
-        [Route("api/[controller]")]
-        [ApiController]
-        public class UserController : ControllerBase
+        private readonly IUserRepository _userRepository;
+
+        public UserController(IUserRepository userRepository)
         {
-            private readonly UserRepository _userRepository;
+            _userRepository = userRepository;
+        }
 
-            public UserController(UserRepository userRepository)
+        [HttpGet]
+        public async Task<ActionResult<List<User>>> GetAllUsers()
+        {
+            return Ok(await _userRepository.getAllUsers());
+        }
+
+        [HttpGet("{id}")]
+        public async Task<ActionResult<User>> UserById(int id)
+        {
+            var user = await _userRepository.userById(id);
+            if (user == null)
+                return NotFound();
+            return Ok(user);
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult> AddUser([FromBody] User user)
+        {
+            var newUser = new User
             {
-                _userRepository = userRepository;
-            }
+                Name = user.Name,
+                Phone = user.Phone,
+                Email = user.Email,
+                RoleId = user.RoleId
+            };
 
+            await _userRepository.addUser(newUser);
+            return CreatedAtAction(nameof(UserById), new { id = newUser.Id }, newUser);
+        }
 
-            //Get All
-            [HttpGet]
-            public ICollection<User> GetAllUsers()
-            {
-                return _userRepository.getAllUsers();
-            }
+        [HttpPut]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<User>> UpdateUser([FromBody] User user)
+        {
+            var updated = await _userRepository.updateUserById(user);
+            if (updated == null)
+                return NotFound();
+            return Ok(updated);
+        }
 
-            //Get by ID
-            [HttpGet("id")]
-            public ActionResult<User> UserById(int id)
-            {
-                var user = _userRepository.userById(id);
-                if (user == null)
-                {
-                    return NotFound();
-                }
-                return Ok(user);
-            }
-
-            //Add User
-            [HttpPost]
-            [Authorize(Roles = "Admin")]
-            public ActionResult AddUser([FromBody] User user)
-            {
-                var _user = new User
-                {
-                    Id = user.Id,
-                    Name = user.Name,
-                    Phone = user.Phone,
-                    Email = user.Email,
-                    RoleId = user.Id
-
-                };
-
-                _userRepository.addUser(_user);
-                return CreatedAtAction(nameof(UserById), new { id = user.Id }, user);
-            }
-
-            //Delete by Id
-            [HttpDelete]
-            [Authorize(Roles = "Admin")]
-            public ActionResult DeleteUserById(int id)
-            {
-                bool deleted = _userRepository.deleteUserById(id);
-                if (deleted)
-                    return Ok();
-                return BadRequest();
-            }
+        [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult> DeleteUserById(int id)
+        {
+            var deleted = await _userRepository.deleteUserById(id);
+            if (!deleted)
+                return NotFound();
+            return NoContent();
         }
     }
-
 }
